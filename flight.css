@@ -1,0 +1,109 @@
+/* The navigation remains a native anchor when this optional transition is off. */
+.flight-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  overflow: hidden;
+  overflow: clip;
+  pointer-events: none;
+  user-select: none;
+  isolation: isolate;
+  contain: strict;
+  background: #080e19;
+  opacity: 0;
+  perspective: 1000px;
+}
+.flight-ambience {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 41%, rgba(226,191,120,.12), transparent 29%),
+    radial-gradient(ellipse at 50% 80%, rgba(40,64,103,.22), transparent 61%),
+    linear-gradient(180deg, #080e19, #0b1320 65%, #080e19);
+}
+.flight-stage {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-style: preserve-3d;
+  transform-origin: 50% 41%;
+  will-change: transform, opacity;
+}
+.flight-sculpture {
+  position: absolute;
+  left: 50%;
+  top: 43%;
+  transform: translate(-50%, -50%);
+  display: block;
+  width: min(126vw, 1700px);
+  max-width: none;
+  height: auto;
+  overflow: visible;
+  margin: 0;
+  filter: drop-shadow(0 0 7px rgba(226,191,120,.16));
+}
+.flight-wing,
+.flight-core {
+  transform-origin: 0 0;
+  transform-box: view-box;
+  will-change: transform, opacity;
+}
+.flight-feather {
+  opacity: .91;
+}
+.flight-wing-ridge {
+  opacity: .82;
+}
+.flight-road {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  opacity: 0;
+  overflow: visible;
+  transform-origin: 50% 37.8%;
+  will-change: transform, opacity;
+}
+.flight-speedline {
+  stroke-linecap: round;
+}
+.flight-horizon {
+  position: absolute;
+  left: 50%;
+  top: 37.8%;
+  width: min(52vw, 750px);
+  height: min(16vw, 150px);
+  opacity: 0;
+  background: radial-gradient(ellipse, rgba(249,228,172,.58), rgba(226,191,120,.16) 26%, rgba(195,147,71,.04) 53%, transparent 72%);
+  transform: translate(-50%,-50%);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+}
+.flight-launch {
+  position: absolute;
+  top: 43%;
+  left: 50%;
+  width: 115vw;
+  height: 4px;
+  opacity: 0;
+  transform: translate(-50%,-50%);
+  background: linear-gradient(90deg, transparent, rgba(226,191,120,.1) 15%, #d8ad63 43%, #f9e4ac 50%, #d8ad63 57%, rgba(226,191,120,.1) 85%, transparent);
+  box-shadow: 0 0 18px rgba(226,191,120,.65), 0 0 70px rgba(226,191,120,.23);
+  border-radius: 50%;
+  will-change: transform, opacity;
+}
+.flight-clock {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+@media (max-width: 700px) {
+  .flight-sculpture { width: 132vw; }
+  .flight-horizon { width: 92vw; height: 24vw; }
+  .flight-launch { height: 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flight-overlay { display: none; }
+}
