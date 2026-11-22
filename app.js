@@ -181,98 +181,118 @@
   });
 
   const canvas = document.getElementById("flag-canvas");
-  const painter = canvas?.getContext("2d");
-  if (!canvas || !painter) return;
+  const artwork = document.getElementById("flag-art");
+  if (!canvas || !artwork) return;
+  const gl = canvas.getContext("webgl", { alpha: false, antialias: false, depth: false });
+  if (!gl) return; // The underlying poster is also the static rendition.
 
-  let width = 0;
-  let height = 0;
+  function shader(type, source) {
+    const result = gl.createShader(type);
+    gl.shaderSource(result, source);
+    gl.compileShader(result);
+    if (gl.getShaderParameter(result, gl.COMPILE_STATUS)) return result;
+    gl.deleteShader(result);
+    return null;
+  }
+
+  const vertex = shader(gl.VERTEX_SHADER, `
+    attribute vec2 position;
+    varying vec2 uv;
+    void main() {
+      uv = position * vec2(0.5, -0.5) + 0.5;
+      gl_Position = vec4(position, 0., 1.);
+    }`);
+  const fragment = shader(gl.FRAGMENT_SHADER, `
+    precision mediump float;
+    varying vec2 uv;
+    uniform sampler2D poster;
+    uniform vec2 crop;
+    uniform float time;
+    void main() {
+      vec2 p = (uv - 0.5) * crop + 0.5;
+      // Wind travels along the diagonal cloth. The neutral background and edges stay anchored.
+      float envelope = sin(uv.x * 3.14159) * sin(uv.y * 3.14159);
+      float across = p.y + 0.52 * p.x;
+      float along = p.x - 0.68 * p.y;
+      float sweep = sin(11.0 * along - time) * cos(8.0 * across + 0.55 * time);
+      float ripple = sin(24.0 * across + 6.0 * along - 1.4 * time);
+      p += envelope * vec2(0.010 * ripple + 0.009 * sweep, 0.024 * sweep + 0.007 * ripple);
+      gl_FragColor = texture2D(poster, p);
+    }`);
+  if (!vertex || !fragment) return;
+  const program = gl.createProgram();
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  gl.deleteShader(vertex);
+  gl.deleteShader(fragment);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+  gl.useProgram(program);
+
+  const buffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const position = gl.getAttribLocation(program, "position");
+  gl.enableVertexAttribArray(position);
+  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+  const crop = gl.getUniformLocation(program, "crop");
+  const clock = gl.getUniformLocation(program, "time");
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  let ready = false;
+  let visible = true;
   let frame = 0;
-  let visible = !("IntersectionObserver" in window);
-  let wasActive = false;
-  const segments = 54;
-  const banners = [
-    { offset: .11, height: .15, phase: .6, red: 38, green: 89, blue: 216 },
-    { offset: .23, height: .2, phase: 1.15, red: 22, green: 45, blue: 110 },
-    { offset: .37, height: .095, phase: 1.67, red: 50, green: 101, blue: 221 },
-  ];
-
-  function flagPoint(t, time, banner) {
-    const wave = Math.sin(t * 10 - time * 1.35 + banner.phase);
-    const fold = Math.sin(t * 18 - time + banner.phase);
-    return {
-      x: width * (-.17 + t * 1.20),
-      y: height * (banner.offset + .53 * t + (.018 + .057 * t) * wave + .014 * fold),
-      depth: .49 + .5 * Math.cos(t * 10 - time * 1.35 + banner.phase),
-      height: height * banner.height * (.86 + .14 * fold),
-    };
-  }
-
-  function drawFlags(time) {
-    painter.clearRect(0, 0, width, height);
-    for (const banner of banners) {
-      let from = flagPoint(0, time, banner);
-      for (let i = 1; i <= segments; i += 1) {
-        const to = flagPoint(i / segments, time, banner);
-        const light = .53 + .66 * to.depth;
-        painter.fillStyle = `rgba(${banner.red * light}, ${banner.green * light}, ${banner.blue * light}, .92)`;
-        painter.beginPath();
-        painter.moveTo(from.x - .6, from.y);
-        painter.lineTo(to.x + .6, to.y);
-        painter.lineTo(to.x + .6, to.y + to.height);
-        painter.lineTo(from.x - .6, from.y + from.height);
-        painter.closePath();
-        painter.fill();
-
-        painter.strokeStyle = `rgba(242, 196, 101, ${.24 + .6 * to.depth})`;
-        painter.lineWidth = Math.max(.7, width / 530);
-        painter.beginPath();
-        painter.moveTo(from.x - .4, from.y + from.height * .94);
-        painter.lineTo(to.x + .4, to.y + to.height * .94);
-        painter.stroke();
-        from = to;
-      }
-    }
-  }
-
-  function paint(timestamp) {
-    frame = 0;
-    drawFlags(timestamp / 1000);
-    if (motionEnabled && visible && !document.hidden) frame = requestAnimationFrame(paint);
-  }
-
-  function syncFlags() {
-    const active = motionEnabled && visible && !document.hidden;
-    if (active && !frame) frame = requestAnimationFrame(paint);
-    if (!active && frame) {
-      cancelAnimationFrame(frame);
-      frame = 0;
-    }
-    if (wasActive !== active || !active) drawFlags(0);
-    wasActive = active;
-  }
-
+  let lastPaint = 0;
+  let elapsed = 0;
   function resizeFlags() {
+    if (!ready) return;
     const box = canvas.getBoundingClientRect();
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-    width = box.width;
-    height = box.height;
-    canvas.width = Math.round(width * pixelRatio);
-    canvas.height = Math.round(height * pixelRatio);
-    painter.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-    drawFlags(0);
+    if (!box.width || !box.height) return;
+    const scale = Math.min(devicePixelRatio || 1, 1.5);
+    canvas.width = Math.round(box.width * scale);
+    canvas.height = Math.round(box.height * scale);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    const ratio = box.width * artwork.naturalHeight / (box.height * artwork.naturalWidth);
+    gl.uniform2f(crop, Math.min(1, ratio), Math.min(1, 1 / ratio));
+    gl.uniform1f(clock, elapsed);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
-
+  function paint(now) {
+    if (now - lastPaint >= 32) {
+      if (lastPaint) elapsed += Math.min(100, now - lastPaint) / 1000;
+      gl.uniform1f(clock, elapsed);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      lastPaint = now;
+    }
+    frame = requestAnimationFrame(paint);
+  }
+  function syncFlags() {
+    const active = ready && visible && motionEnabled && !document.hidden;
+    canvas.classList.toggle("is-ready", ready && motionEnabled);
+    if (active && !frame) frame = requestAnimationFrame(paint);
+    if (!active) { cancelAnimationFrame(frame); frame = 0; lastPaint = 0; }
+  }
+  function loadPoster() {
+    if (!artwork.naturalWidth || ready) return;
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, artwork);
+    if (gl.getError() !== gl.NO_ERROR) return;
+    ready = true;
+    resizeFlags();
+    syncFlags();
+  }
   updateArtwork = syncFlags;
-  resizeFlags();
-  window.addEventListener("resize", resizeFlags, { passive: true });
-  document.addEventListener("visibilitychange", syncFlags);
-
+  if (artwork.complete) loadPoster();
+  else artwork.addEventListener("load", loadPoster, { once: true });
+  if ("ResizeObserver" in window) new ResizeObserver(resizeFlags).observe(artwork);
+  else window.addEventListener("resize", resizeFlags, { passive: true });
   if ("IntersectionObserver" in window) {
-    const observer = new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting;
-      syncFlags();
-    });
-    observer.observe(canvas);
+    new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; syncFlags(); }).observe(canvas);
   }
-  syncFlags();
+  canvas.addEventListener("webglcontextlost", () => { ready = false; syncFlags(); });
+  document.addEventListener("visibilitychange", syncFlags);
 })();
