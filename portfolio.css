@@ -35,18 +35,17 @@ body::before, .hero::before, .contact-glow { display: none; }
   background: var(--ink);
   border-color: var(--line);
 }
-.brand { gap: 0; border: 1px solid var(--gold); color: var(--gold); }
-.brand-symbol, .brand-name {
+.brand { gap: .55rem; color: var(--gold); }
+.brand-mark { display: block; width: 54px; height: auto; flex-shrink: 0; }
+.brand-name {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 32px;
-  padding: 0 .42em;
+  padding: 0;
   font: 400 1.4rem/1 var(--display);
   letter-spacing: -.035em;
 }
-.brand-symbol { background: var(--gold); color: var(--ink); }
-.brand-symbol > span { transform: none; }
 .nav-links { gap: clamp(.85rem, 2vw, 2.1rem); }
 .nav-links a, html.js .nav-links a, .nav-cv, .text-link, .project-filter button,
 .button, .contact-links a, .contact-links button, .project-count, .motion-toggle {
@@ -286,7 +285,9 @@ html.motion-paused::view-transition-new(root) { animation: none; }
   .hero-actions { gap: .5rem .9rem; }
   .project-ames, .case-findings > div { grid-template-columns: 1fr; }
   .case-findings > div { gap: .35rem; }
-  .brand-symbol, .brand-name { min-height: 28px; font-size: 1.13rem; }
+  .brand { gap: .32rem; }
+  .brand-mark { width: 40px; }
+  .brand-name { min-height: 28px; font-size: 1.13rem; }
   .nav-cv { font-size: .65rem; padding: .65rem; gap: .4rem; }
   .project-filter button { padding-inline: .55rem; font-size: .71rem; }
   .poster-signature { right: .45rem; bottom: .45rem; font-size: .7rem; }
